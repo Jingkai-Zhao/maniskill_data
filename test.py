@@ -1,5 +1,6 @@
 import gymnasium as gym
 import mani_skill.envs
+import diy
 
 env = gym.make(
     "aaa-OpenCabinetDrawer-v1",
