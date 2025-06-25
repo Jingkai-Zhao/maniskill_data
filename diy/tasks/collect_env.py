@@ -131,7 +131,7 @@ class CollectEnv(BaseEnv):
                     )
                 qpos[:, -2:] = 0.04
                 self.agent.reset(qpos)
-                self.agent.robot.set_pose(sapien.Pose([-1.0, 0, 0]))
+                self.agent.robot.set_pose(sapien.Pose([-0.5, 0, 0]))
 
     def _get_obs_extra(self, info: Dict):
         # in reality some people hack is_grasped into observations by checking if the gripper can close fully or not
