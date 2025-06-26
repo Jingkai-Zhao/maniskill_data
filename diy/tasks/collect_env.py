@@ -10,7 +10,7 @@ from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.utils.building.ground import build_ground
 from mani_skill.sensors.camera import CameraConfig
 from mani_skill.utils import common, sapien_utils
-from mani_skill.utils.building import actors
+from mani_skill.utils.building import actors, articulations
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.structs.pose import Pose
 
@@ -18,7 +18,7 @@ from mani_skill import PACKAGE_ASSET_DIR
 from mani_skill import ASSET_DIR
 from mani_skill.utils.io_utils import load_json
 
-dataset = "ycb" # "partnet-mobility" or "ycb"
+dataset = "partnet-mobility" # "partnet-mobility" or "ycb"
 @register_env("Collect-v1", max_episode_steps=50)
 class CollectEnv(BaseEnv):
     """
@@ -120,13 +120,18 @@ class CollectEnv(BaseEnv):
         #     name="assets",
         #     initial_pose=sapien.Pose(p=[0, 0, self.cube_half_size]),
         # )
-        _ = self._batched_episode_rng.choice(self.all_model_ids)
         
         model_id = self.all_model_ids[self._main_seed[0]] if self._main_seed[0]<len(self.all_model_ids) else self.all_model_ids[0]
-        builder = actors.get_actor_builder(
-            self.scene,
-            id=f"{dataset}:{model_id}",
-        )
+        
+        if dataset == "ycb":
+            builder = actors.get_actor_builder(
+                self.scene,
+                id=f"{dataset}:{model_id}",
+            )
+        elif dataset == "partnet-mobility":
+            builder = articulations.get_articulation_builder(
+                self.scene, f"{dataset}:{model_id}"
+            )
         # choose a reasonable initial pose that doesn't intersect other objects
         builder.initial_pose = sapien.Pose(p=[0, 0, 0])
         self.assets = builder.build(name=f"{model_id}")
@@ -151,9 +156,9 @@ class CollectEnv(BaseEnv):
                 qpos = np.array(
                     [
                         0.0,
-                        -np.pi / 8,
+                        -np.pi / 4,
                         0,
-                        -np.pi * 7 / 8,
+                        -np.pi * 3 / 8,
                         0,
                         np.pi * 3 / 4,
                         np.pi / 4,
@@ -194,13 +199,14 @@ class CollectEnv(BaseEnv):
         return obs
 
     def evaluate(self):
-        is_grasped = self.agent.is_grasping(self.assets)
-        is_robot_static = self.agent.is_static(0.2)
-        return {
-            "success": is_robot_static,
-            "is_robot_static": is_robot_static,
-            "is_grasped": is_grasped,
-        }
+        # is_grasped = self.agent.is_grasping(self.assets)
+        # is_robot_static = self.agent.is_static(0.2)
+        # return {
+        #     "success": is_robot_static,
+        #     "is_robot_static": is_robot_static,
+        #     "is_grasped": is_grasped,
+        # }
+        return {}
 
     def compute_dense_reward(self, obs: Any, action: torch.Tensor, info: Dict):
         reward = 1
