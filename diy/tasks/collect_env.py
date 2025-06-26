@@ -14,7 +14,11 @@ from mani_skill.utils.building import actors
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.structs.pose import Pose
 
+from mani_skill import PACKAGE_ASSET_DIR
+from mani_skill import ASSET_DIR
+from mani_skill.utils.io_utils import load_json
 
+dataset = "ycb" # "partnet-mobility" or "ycb"
 @register_env("Collect-v1", max_episode_steps=50)
 class CollectEnv(BaseEnv):
     """
@@ -43,11 +47,42 @@ class CollectEnv(BaseEnv):
     goal_thresh = 0.025
     cube_spawn_half_size = 0.1
     cube_spawn_center = (0, 0)
+    
+    PartNet_json = (PACKAGE_ASSET_DIR / "partnet_mobility/meta/info_cabinet_drawer_train.json")
+    YCB_json = (ASSET_DIR / "assets/mani_skill2_ycb/info_pick_v0.json")
 
-    def __init__(self, *args, robot_uids="panda", robot_init_qpos_noise=0.02, **kwargs):
+    def __init__(
+        self,
+        *args,
+        robot_uids="panda",
+        robot_init_qpos_noise=0.02,
+        reconfiguration_freq=None,
+        num_envs=1,
+        **kwargs,
+    ):
         self.robot_init_qpos_noise = robot_init_qpos_noise
+        
+        train_data = None
+        if dataset == "ycb":
+            train_data = load_json(self.YCB_json)
+        elif dataset == "partnet-mobility":
+            train_data = load_json(self.PartNet_json)
+            
+        self.all_model_ids = np.array(list(train_data.keys()))
 
-        super().__init__(*args, robot_uids=robot_uids, **kwargs)
+        if reconfiguration_freq is None:
+            # if not user set, we pick a number
+            if num_envs == 1:
+                reconfiguration_freq = 1
+            else:
+                reconfiguration_freq = 0
+        super().__init__(
+            *args,
+            robot_uids=robot_uids,
+            reconfiguration_freq=reconfiguration_freq,
+            num_envs=num_envs,
+            **kwargs,
+        )
 
     @property
     def _default_sensor_configs(self):
@@ -78,36 +113,47 @@ class CollectEnv(BaseEnv):
         )
         
     def _load_assets(self):
-        self.assets = actors.build_cube(
+        # self.assets = actors.build_cube(
+        #     self.scene,
+        #     half_size=self.cube_half_size,
+        #     color=[1, 0, 0, 1],
+        #     name="assets",
+        #     initial_pose=sapien.Pose(p=[0, 0, self.cube_half_size]),
+        # )
+        _ = self._batched_episode_rng.choice(self.all_model_ids)
+        
+        model_id = self.all_model_ids[self._main_seed[0]] if self._main_seed[0]<len(self.all_model_ids) else self.all_model_ids[0]
+        builder = actors.get_actor_builder(
             self.scene,
-            half_size=self.cube_half_size,
-            color=[1, 0, 0, 1],
-            name="assets",
-            initial_pose=sapien.Pose(p=[0, 0, self.cube_half_size]),
+            id=f"{dataset}:{model_id}",
         )
+        # choose a reasonable initial pose that doesn't intersect other objects
+        builder.initial_pose = sapien.Pose(p=[0, 0, 0])
+        self.assets = builder.build(name=f"{model_id}")
+        
+        collision_mesh = self.assets.get_first_collision_mesh()
+        self.assets_zs = -collision_mesh.bounding_box.bounds[0, 2]
+        self.assets_zs = common.to_tensor(self.assets_zs, device=self.device)
         
     # def _after_reconfigure(self, options):
-    #     self.assets_zs = []
-    #     for asset in self._assets:
-    #         collision_mesh = asset.get_first_collision_mesh()
-    #         self.assets_zs.append(-collision_mesh.bounding_box.bounds[0, 2])
+    #     self.assets_zs = -self.assets.get_first_collision_mesh().bounding_box.bounds[0, 2]
     #     self.assets_zs = common.to_tensor(self.assets_zs, device=self.device)
 
     def _initialize_episode(self, env_idx: torch.Tensor, options: dict):
         with torch.device(self.device):
             b = len(env_idx)
             xy = torch.zeros((b, 3))
-            # xy[:, 2] = self.assets_zs[env_idx]
-            xy[:, 2] = 0.02
+            xy[:, 2] = self.assets_zs
+            # xy[:, 2] = 0.02
             self.assets.set_pose(Pose.create_from_pq(p=xy))
             
             if self.robot_uids == "panda":
                 qpos = np.array(
                     [
                         0.0,
-                        np.pi / 8,
+                        -np.pi / 8,
                         0,
-                        -np.pi * 5 / 8,
+                        -np.pi * 7 / 8,
                         0,
                         np.pi * 3 / 4,
                         np.pi / 4,
@@ -131,7 +177,7 @@ class CollectEnv(BaseEnv):
                     )
                 qpos[:, -2:] = 0.04
                 self.agent.reset(qpos)
-                self.agent.robot.set_pose(sapien.Pose([-0.5, 0, 0]))
+                self.agent.robot.set_pose(sapien.Pose([-0.75, 0, 0]))
 
     def _get_obs_extra(self, info: Dict):
         # in reality some people hack is_grasped into observations by checking if the gripper can close fully or not

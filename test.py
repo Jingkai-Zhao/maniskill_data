@@ -3,7 +3,7 @@ import mani_skill.envs
 import diy
 
 env = gym.make(
-    "Collect-v1",
+    "aaa-OpenCabinetDrawer-v1",
     obs_mode="state",
     control_mode="pd_joint_delta_pos",
     num_envs=16,
