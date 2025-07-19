@@ -1,3 +1,4 @@
 ManiSkill/
 demos/
 **/__pycache__
+*.zip

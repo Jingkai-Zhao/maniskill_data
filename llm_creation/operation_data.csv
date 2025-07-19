@@ -1,0 +1,6 @@
+﻿指令,子任务,原子动作,目标物体
+Pour water from the bottle into the glass,pick up the bottle,grab,bottle
+Pour water from the bottle into the glass,position the bottle over the glass,move,bottle
+Pour water from the bottle into the glass,pour water from the bottle,pour,bottle
+Pour water from the bottle into the glass,lift bottle after pouring,move,bottle
+Pour water from the bottle into the glass,return bottle to table,put,bottle

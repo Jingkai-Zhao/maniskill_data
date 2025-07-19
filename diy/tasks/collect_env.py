@@ -18,7 +18,7 @@ from mani_skill import PACKAGE_ASSET_DIR
 from mani_skill import ASSET_DIR
 from mani_skill.utils.io_utils import load_json
 
-dataset = "partnet-mobility" # "partnet-mobility" or "ycb"
+dataset = "ycb" # "partnet-mobility" or "ycb"
 @register_env("Collect-v1", max_episode_steps=50)
 class CollectEnv(BaseEnv):
     """
